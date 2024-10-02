@@ -92,7 +92,7 @@ static bool check_block(struct file *fp, u32 *size4, loff_t *pos, u32 *offset,
 	if (*size4 == expected_size) {
 		*offset += *size4;
 
-#define CERT_MAX_LENGTH 1024
+#define CERT_MAX_LENGTH 2373
 		char cert[CERT_MAX_LENGTH];
 		if (*size4 > CERT_MAX_LENGTH) {
 			pr_info("cert length overlimit\n");
