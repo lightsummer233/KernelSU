@@ -20,7 +20,7 @@ jobs:
           - version: "android13-5.10"
             sub_level: 218
             os_patch_level: 2024-08
-          - version: "android13-5.15"
+          - version: "android13-5.15-lts"
             sub_level: 151
             os_patch_level: 2024-08
           - version: "android14-5.15"
