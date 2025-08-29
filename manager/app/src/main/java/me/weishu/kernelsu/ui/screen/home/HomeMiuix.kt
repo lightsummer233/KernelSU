@@ -169,6 +169,7 @@ fun HomePagerMiuix(
                     if (checkUpdate) {
                         UpdateCard()
                     }
+                    Unofficial()
                     InfoCard()
                     DonateCard()
                     LearnMoreCard()
@@ -176,6 +177,33 @@ fun HomePagerMiuix(
                 Spacer(Modifier.height(bottomInnerPadding))
             }
         }
+    }
+}
+
+@Composable
+private fun Unofficial() {
+    val uriHandler = LocalUriHandler.current
+    val url = stringResource(R.string.home_unofficial_kernelsu_announce)
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth(),
+    ) {
+        BasicComponent(
+            title = stringResource(R.string.home_unofficial_kernelsu),
+            summary = stringResource(R.string.home_unofficial_kernelsu_body),
+            endActions = {
+                Icon(
+                    imageVector = MiuixIcons.Link,
+                    tint = colorScheme.onSurface,
+                    contentDescription = null
+                )
+            },
+            onClick = {
+                uriHandler.openUri(url)
+            },
+            insideMargin = PaddingValues(18.dp)
+        )
     }
 }
 
