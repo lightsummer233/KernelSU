@@ -4,6 +4,9 @@
 #include "objsec.h"
 #include "linux/version.h"
 #include "../klog.h" // IWYU pragma: keep
+#ifndef KSU_COMPAT_USE_SELINUX_STATE
+#include "avc.h"
+#endif
 
 #define KERNEL_SU_DOMAIN "u:r:su:s0"
 
@@ -24,8 +27,8 @@ static int transive_to_domain(const char *domain)
 
     error = security_secctx_to_secid(domain, strlen(domain), &sid);
     if (error) {
-        pr_info("security_secctx_to_secid %s -> sid: %d, error: %d\n",
-            domain, sid, error);
+        pr_info("security_secctx_to_secid %s -> sid: %d, error: %d\n", domain,
+                sid, error);
     }
     if (!error) {
         tsec->sid = sid;
@@ -54,20 +57,32 @@ if (!is_domain_permissive) {
 void setenforce(bool enforce)
 {
 #ifdef CONFIG_SECURITY_SELINUX_DEVELOP
+#ifdef KSU_COMPAT_USE_SELINUX_STATE
     selinux_state.enforcing = enforce;
+#else
+    selinux_enforcing = enforce;
+#endif
 #endif
 }
 
 bool getenforce()
 {
 #ifdef CONFIG_SECURITY_SELINUX_DISABLE
+#ifdef KSU_COMPAT_USE_SELINUX_STATE
     if (selinux_state.disabled) {
+#else
+    if (selinux_disabled) {
+#endif
         return false;
     }
 #endif
 
 #ifdef CONFIG_SECURITY_SELINUX_DEVELOP
+#ifdef KSU_COMPAT_USE_SELINUX_STATE
     return selinux_state.enforcing;
+#else
+    return selinux_enforcing;
+#endif
 #else
     return true;
 #endif
@@ -86,13 +101,13 @@ static inline u32 current_sid(void)
 }
 #endif
 
-bool is_task_ksu_domain(const struct cred* cred)
+bool is_task_ksu_domain(const struct cred *cred)
 {
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 14, 0)
-	struct lsm_context ctx;
+    struct lsm_context ctx;
 #else
-	char *domain;
-	u32 seclen;
+    char *domain;
+    u32 seclen;
 #endif
     bool result;
     if (!cred) {
@@ -103,19 +118,19 @@ bool is_task_ksu_domain(const struct cred* cred)
         return false;
     }
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 14, 0)
-	int err = security_secid_to_secctx(tsec->sid, &ctx);
+    int err = security_secid_to_secctx(tsec->sid, &ctx);
 #else
-	int err = security_secid_to_secctx(tsec->sid, &domain, &seclen);
+    int err = security_secid_to_secctx(tsec->sid, &domain, &seclen);
 #endif
     if (err) {
         return false;
     }
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 14, 0)
-	result = strncmp(KERNEL_SU_DOMAIN, ctx.context, ctx.len) == 0;
-	security_release_secctx(&ctx);
+    result = strncmp(KERNEL_SU_DOMAIN, ctx.context, ctx.len) == 0;
+    security_release_secctx(&ctx);
 #else
-	result = strncmp(KERNEL_SU_DOMAIN, domain, seclen) == 0;
-	security_release_secctx(domain, seclen);
+    result = strncmp(KERNEL_SU_DOMAIN, domain, seclen) == 0;
+    security_release_secctx(domain, seclen);
 #endif
     return result;
 }
@@ -126,36 +141,36 @@ bool is_ksu_domain()
     return is_task_ksu_domain(current_cred());
 }
 
-bool is_zygote(const struct cred* cred)
+bool is_zygote(const struct cred *cred)
 {
     if (!cred) {
         return false;
     }
-    const struct task_security_struct * tsec = selinux_cred(cred);
+    const struct task_security_struct *tsec = selinux_cred(cred);
     if (!tsec) {
         return false;
     }
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 14, 0)
-	struct lsm_context ctx;
+    struct lsm_context ctx;
 #else
-	char *domain;
-	u32 seclen;
+    char *domain;
+    u32 seclen;
 #endif
     bool result;
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 14, 0)
-	int err = security_secid_to_secctx(tsec->sid, &ctx);
+    int err = security_secid_to_secctx(tsec->sid, &ctx);
 #else
-	int err = security_secid_to_secctx(tsec->sid, &domain, &seclen);
+    int err = security_secid_to_secctx(tsec->sid, &domain, &seclen);
 #endif
     if (err) {
         return false;
     }
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 14, 0)
-	result = strncmp("u:r:zygote:s0", ctx.context, ctx.len) == 0;
-	security_release_secctx(&ctx);
+    result = strncmp("u:r:zygote:s0", ctx.context, ctx.len) == 0;
+    security_release_secctx(&ctx);
 #else
-	result = strncmp("u:r:zygote:s0", domain, seclen) == 0;
-	security_release_secctx(domain, seclen);
+    result = strncmp("u:r:zygote:s0", domain, seclen) == 0;
+    security_release_secctx(domain, seclen);
 #endif
     return result;
 }
@@ -166,7 +181,7 @@ u32 ksu_get_ksu_file_sid()
 {
     u32 ksu_file_sid = 0;
     int err = security_secctx_to_secid(KSU_FILE_DOMAIN, strlen(KSU_FILE_DOMAIN),
-                       &ksu_file_sid);
+                                       &ksu_file_sid);
     if (err) {
         pr_info("get ksufile sid err %d\n", err);
     }

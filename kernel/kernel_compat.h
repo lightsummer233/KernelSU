@@ -11,9 +11,9 @@
  * Huawei Hisi Kernel EBITMAP Enable or Disable Flag ,
  * From ss/ebitmap.h
  */
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 9, 0)) &&                           \
-        (LINUX_VERSION_CODE < KERNEL_VERSION(4, 10, 0)) ||               \
-    (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 14, 0)) &&                      \
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 9, 0)) &&                         \
+        (LINUX_VERSION_CODE < KERNEL_VERSION(4, 10, 0)) ||                     \
+    (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 14, 0)) &&                        \
         (LINUX_VERSION_CODE < KERNEL_VERSION(4, 15, 0))
 #ifdef HISI_SELINUX_EBITMAP_RO
 #define CONFIG_IS_HW_HISI
@@ -21,18 +21,24 @@
 #endif
 
 extern long ksu_strncpy_from_user_nofault(char *dst,
-                      const void __user *unsafe_addr,
-                      long count);
+                                          const void __user *unsafe_addr,
+                                          long count);
+
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 10, 0) || defined(CONFIG_IS_HW_HISI)
+extern struct key *init_session_keyring;
+#endif
 
 extern void ksu_android_ns_fs_check();
 extern struct file *ksu_filp_open_compat(const char *filename, int flags,
-                     umode_t mode);
+                                         umode_t mode);
 extern ssize_t ksu_kernel_read_compat(struct file *p, void *buf, size_t count,
-                      loff_t *pos);
+                                      loff_t *pos);
 extern ssize_t ksu_kernel_write_compat(struct file *p, const void *buf,
-                       size_t count, loff_t *pos);
+                                       size_t count, loff_t *pos);
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 10, 0)
 extern void ksu_seccomp_clear_cache(struct seccomp_filter *filter, int nr);
 extern void ksu_seccomp_allow_cache(struct seccomp_filter *filter, int nr);
+#endif
 
 #endif

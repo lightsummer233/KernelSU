@@ -1,5 +1,4 @@
 #include <linux/compiler.h>
-#include <linux/sched/signal.h>
 #include <linux/slab.h>
 #include <linux/task_work.h>
 #include <linux/thread_info.h>
@@ -138,7 +137,11 @@ static void setup_groups(struct root_profile *profile, struct cred *cred)
             put_group_info(group_info);
             return;
         }
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 9, 0)
         group_info->gid[i] = kgid;
+#else
+        GROUP_AT(group_info, i) = kgid;
+#endif
     }
 
     groups_sort(group_info);
@@ -160,8 +163,9 @@ static void disable_seccomp()
 #ifdef CONFIG_SECCOMP
     current->seccomp.mode = 0;
     current->seccomp.filter = NULL;
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 9, 0)
     atomic_set(&current->seccomp.filter_count, 0);
-#else
+#endif
 #endif
 }
 
@@ -356,7 +360,7 @@ int ksu_handle_setuid(struct cred *new, const struct cred *old)
             // disallow any non-ksu domain escalation from non-root to root!
             if (unlikely(new_uid.val) == 0) {
                 if (!is_ksu_domain()) {
-                    pr_warn("find suspicious EoP: %d %s, from %d to %d\n", 
+                    pr_warn("find suspicious EoP: %d %s, from %d to %d\n",
                         current->pid, current->comm, old_uid.val, new_uid.val);
                     send_sig(SIGKILL, current, 0);
                     return 0;
@@ -365,7 +369,7 @@ int ksu_handle_setuid(struct cred *new, const struct cred *old)
             // disallow appuid decrease to any other uid if it is allowed to su
             if (is_appuid(old_uid)) {
                 if (new_uid.val < old_uid.val && ksu_is_allow_uid_for_current(old_uid.val)) {
-                    pr_warn("find suspicious EoP: %d %s, from %d to %d\n", 
+                    pr_warn("find suspicious EoP: %d %s, from %d to %d\n",
                         current->pid, current->comm, old_uid.val, new_uid.val);
                     send_sig(SIGKILL, current, 0);
                     return 0;
@@ -457,7 +461,11 @@ int ksu_handle_setuid(struct cred *new, const struct cred *old)
     tw->old_cred = get_current_cred();
     tw->cb.func = umount_tw_func;
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 7, 8)
     int err = task_work_add(current, &tw->cb, TWA_RESUME);
+#else
+    int err = task_work_add(current, &tw->cb, true);
+#endif
     if (err) {
         if (tw->old_cred) {
             put_cred(tw->old_cred);
@@ -484,7 +492,13 @@ static int reboot_handler_pre(struct kprobe *p, struct pt_regs *regs)
         int fd = ksu_install_fd();
         pr_info("[%d] install ksu fd: %d\n", current->pid, fd);
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 16, 0)
         arg4 = (unsigned long)PT_REGS_SYSCALL_PARM4(real_regs);
+#else
+        // PRCTL_SYMBOL is the common one, called by C convention in do_syscall_64
+        // https://elixir.bootlin.com/linux/v4.15.18/source/arch/x86/entry/common.c#L287
+        arg4 = (unsigned long)PT_REGS_CCALL_PARM4(real_regs);
+#endif
         if (copy_to_user((int *)arg4, &fd, sizeof(fd))) {
             pr_err("install ksu fd reply err\n");
         }

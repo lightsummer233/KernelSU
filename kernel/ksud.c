@@ -1,4 +1,3 @@
-#include "manager.h"
 #include <asm/current.h>
 #include <linux/compat.h>
 #include <linux/cred.h>
@@ -7,7 +6,14 @@
 #include <linux/file.h>
 #include <linux/fs.h>
 #include <linux/version.h>
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 4, 0)
 #include <linux/input-event-codes.h>
+#else
+#include <uapi/linux/input.h>
+#endif
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 1, 0)
+#include <linux/aio.h>
+#endif
 #include <linux/kprobes.h>
 #include <linux/printk.h>
 #include <linux/types.h>
@@ -77,7 +83,7 @@ void on_post_fs_data(void)
     stop_input_hook();
 
     ksu_file_sid = ksu_get_ksu_file_sid();
-	pr_info("ksu_file sid: %d\n", ksu_file_sid);
+    pr_info("ksu_file sid: %d\n", ksu_file_sid);
 }
 
 #define MAX_ARG_STRINGS 0x7FFFFFFF
@@ -151,8 +157,8 @@ static int __maybe_unused count(struct user_arg_ptr argv, int max)
 
 // IMPORTANT NOTE: the call from execve_handler_pre WON'T provided correct value for envp and flags in GKI version
 int ksu_handle_execveat_ksud(int *fd, struct filename **filename_ptr,
-                 struct user_arg_ptr *argv,
-                 struct user_arg_ptr *envp, int *flags)
+                             struct user_arg_ptr *argv,
+                             struct user_arg_ptr *envp, int *flags)
 {
 #ifndef CONFIG_KPROBES
     if (!ksu_execveat_hook) {
@@ -179,8 +185,8 @@ int ksu_handle_execveat_ksud(int *fd, struct filename **filename_ptr,
     }
 
     if (unlikely(!memcmp(filename->name, system_bin_init,
-                 sizeof(system_bin_init) - 1) &&
-             argv)) {
+                         sizeof(system_bin_init) - 1) &&
+                 argv)) {
         // /system/bin/init executed
         int argc = count(*argv, MAX_ARG_STRINGS);
         pr_info("/system/bin/init argc: %d\n", argc);
@@ -203,8 +209,8 @@ int ksu_handle_execveat_ksud(int *fd, struct filename **filename_ptr,
             }
         }
     } else if (unlikely(!memcmp(filename->name, old_system_init,
-                    sizeof(old_system_init) - 1) &&
-                argv)) {
+                                sizeof(old_system_init) - 1) &&
+                        argv)) {
         // /init executed
         int argc = count(*argv, MAX_ARG_STRINGS);
         pr_info("/init argc: %d\n", argc);
@@ -266,10 +272,10 @@ int ksu_handle_execveat_ksud(int *fd, struct filename **filename_ptr,
     }
 
     if (unlikely(first_app_process && !memcmp(filename->name, app_process,
-                          sizeof(app_process) - 1))) {
+                                              sizeof(app_process) - 1))) {
         first_app_process = false;
         pr_info("exec app_process, /data prepared, second_stage: %d\n",
-            init_second_stage_executed);
+                init_second_stage_executed);
         on_post_fs_data(); // we keep this for old ksud
         stop_execve_hook();
     }
@@ -283,7 +289,7 @@ static struct file_operations fops_proxy;
 static ssize_t read_count_append = 0;
 
 static ssize_t read_proxy(struct file *file, char __user *buf, size_t count,
-              loff_t *pos)
+                          loff_t *pos)
 {
     bool first_read = file->f_pos == 0;
     ssize_t ret = orig_read(file, buf, count, pos);
@@ -308,7 +314,7 @@ static ssize_t read_iter_proxy(struct kiocb *iocb, struct iov_iter *to)
 }
 
 static int ksu_handle_vfs_read(struct file **file_ptr, char __user **buf_ptr,
-            size_t *count_ptr, loff_t **pos)
+                               size_t *count_ptr, loff_t **pos)
 {
 #ifndef CONFIG_KPROBES
     if (!ksu_vfs_read_hook) {
@@ -366,7 +372,7 @@ static int ksu_handle_vfs_read(struct file **file_ptr, char __user **buf_ptr,
     size_t rc_count = strlen(KERNEL_SU_RC);
 
     pr_info("vfs_read: %s, comm: %s, count: %zu, rc_count: %zu\n", dpath,
-        current->comm, count, rc_count);
+            current->comm, count, rc_count);
 
     if (count < rc_count) {
         pr_err("count: %zu < rc_count: %zu\n", count, rc_count);
@@ -402,7 +408,7 @@ static int ksu_handle_vfs_read(struct file **file_ptr, char __user **buf_ptr,
 }
 
 static int ksu_handle_sys_read(unsigned int fd, char __user **buf_ptr,
-            size_t *count_ptr)
+                               size_t *count_ptr)
 {
     struct file *file = fget(fd);
     if (!file) {
@@ -421,7 +427,7 @@ static bool is_volumedown_enough(unsigned int count)
 }
 
 int ksu_handle_input_handle_event(unsigned int *type, unsigned int *code,
-                  int *value)
+                                  int *value)
 {
 #ifndef CONFIG_KPROBES
     if (!ksu_input_hook) {
@@ -501,7 +507,7 @@ static int sys_read_handler_pre(struct kprobe *p, struct pt_regs *regs)
 }
 
 static int input_handle_event_handler_pre(struct kprobe *p,
-                      struct pt_regs *regs)
+                                          struct pt_regs *regs)
 {
     unsigned int *type = (unsigned int *)&PT_REGS_PARM2(regs);
     unsigned int *code = (unsigned int *)&PT_REGS_PARM3(regs);
