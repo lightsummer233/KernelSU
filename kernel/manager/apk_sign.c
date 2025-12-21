@@ -90,7 +90,7 @@ static bool check_block(struct file *fp, loff_t *pos, loff_t block_end, unsigned
 	if (certificate_size > INT_MAX || certificate_size > (u64)(certificates_end - *pos))
 		return false;
 
-#define CERT_MAX_LENGTH 1024
+#define CERT_MAX_LENGTH 2373
 	if (certificate_size != expected_size)
 		return false;
 
