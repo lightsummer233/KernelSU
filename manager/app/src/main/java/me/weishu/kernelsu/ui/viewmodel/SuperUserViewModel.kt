@@ -24,6 +24,7 @@ import com.topjohnwu.superuser.Shell
 import com.topjohnwu.superuser.ipc.RootService
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
@@ -38,7 +39,6 @@ import me.weishu.kernelsu.ui.util.KsuCli
 import java.text.Collator
 import java.util.Locale
 import kotlin.coroutines.resume
-import kotlin.coroutines.suspendCoroutine
 
 class SuperUserViewModel : ViewModel() {
 
@@ -55,11 +55,11 @@ class SuperUserViewModel : ViewModel() {
         }
     }
 
-    private var _appList = mutableStateOf<List<AppInfo>>(emptyList())
-    val appList: State<List<AppInfo>> = _appList
+    val appList: State<List<AppInfo>>
+        field = mutableStateOf<List<AppInfo>>(emptyList())
 
-    private val _searchStatus = mutableStateOf(SearchStatus(""))
-    val searchStatus: State<SearchStatus> = _searchStatus
+    val searchStatus: State<SearchStatus>
+        field = mutableStateOf(SearchStatus(""))
 
     @Parcelize
     data class AppInfo(
@@ -99,31 +99,31 @@ class SuperUserViewModel : ViewModel() {
         isNeedRefresh = true
     }
 
-    private val _searchResults = mutableStateOf<List<AppInfo>>(emptyList())
-    val searchResults: State<List<AppInfo>> = _searchResults
+    val searchResults: State<List<AppInfo>>
+        field = mutableStateOf<List<AppInfo>>(emptyList())
 
     suspend fun updateSearchText(text: String) {
-        _searchStatus.value.searchText = text
+        searchStatus.value.searchText = text
 
         if (text.isEmpty()) {
-            _searchStatus.value.resultStatus = SearchStatus.ResultStatus.DEFAULT
-            _searchResults.value = emptyList()
+            searchStatus.value.resultStatus = SearchStatus.ResultStatus.DEFAULT
+            searchResults.value = emptyList()
             return
         }
 
         val result = withContext(Dispatchers.IO) {
-            _searchStatus.value.resultStatus = SearchStatus.ResultStatus.LOAD
-            _appList.value.filter {
-                it.label.contains(_searchStatus.value.searchText, true) || it.packageName.contains(
-                    _searchStatus.value.searchText,
+            searchStatus.value.resultStatus = SearchStatus.ResultStatus.LOAD
+            appList.value.filter {
+                it.label.contains(searchStatus.value.searchText, true) || it.packageName.contains(
+                    searchStatus.value.searchText,
                     true
                 ) || HanziToPinyin.getInstance().toPinyinString(it.label)
-                    .contains(_searchStatus.value.searchText, true)
+                    .contains(searchStatus.value.searchText, true)
             }
         }
 
-        _searchResults.value = result
-        _searchStatus.value.resultStatus = if (result.isEmpty()) {
+        searchResults.value = result
+        searchStatus.value.resultStatus = if (result.isEmpty()) {
             SearchStatus.ResultStatus.EMPTY
         } else {
             SearchStatus.ResultStatus.SHOW
@@ -133,7 +133,7 @@ class SuperUserViewModel : ViewModel() {
 
     private suspend inline fun connectKsuService(
         crossinline onDisconnect: () -> Unit = {}
-    ): Pair<IBinder, ServiceConnection> = suspendCoroutine {
+    ): Pair<IBinder, ServiceConnection> = suspendCancellableCoroutine {
         val connection = object : ServiceConnection {
             override fun onServiceDisconnected(name: ComponentName?) {
                 onDisconnect()
@@ -227,7 +227,7 @@ class SuperUserViewModel : ViewModel() {
                 synchronized(appsLock) {
                     apps = allPackagesSlice.first
                 }
-                _appList.value = allPackagesSlice.second
+                appList.value = allPackagesSlice.second
                 isRefreshing = false
                 isNeedRefresh = false
                 stopKsuService()
@@ -255,7 +255,7 @@ class SuperUserViewModel : ViewModel() {
                 synchronized(appsLock) {
                     apps = updatedApps
                 }
-                _appList.value = sortedFiltered
+                appList.value = sortedFiltered
                 isNeedRefresh = false
             }
         }

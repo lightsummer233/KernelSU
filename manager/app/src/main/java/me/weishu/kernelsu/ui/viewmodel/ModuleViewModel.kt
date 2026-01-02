@@ -89,14 +89,14 @@ class ModuleViewModel : ViewModel() {
     private val updateInfoMutex = Mutex()
     private var updateInfoCache: MutableMap<String, ModuleUpdateCache> = mutableMapOf()
     private val updateInfoInFlight = mutableSetOf<String>()
-    private val _updateInfo = mutableStateMapOf<String, ModuleUpdateInfo>()
-    val updateInfo: SnapshotStateMap<String, ModuleUpdateInfo> = _updateInfo
+    val updateInfo: SnapshotStateMap<String, ModuleUpdateInfo> =
+        mutableStateMapOf<String, ModuleUpdateInfo>()
 
-    private val _searchStatus = mutableStateOf(SearchStatus(""))
-    val searchStatus: State<SearchStatus> = _searchStatus
+    val searchStatus: State<SearchStatus>
+        field = mutableStateOf(SearchStatus(""))
 
-    private val _searchResults = mutableStateOf<List<ModuleInfo>>(emptyList())
-    val searchResults: State<List<ModuleInfo>> = _searchResults
+    val searchResults: State<List<ModuleInfo>>
+        field = mutableStateOf<List<ModuleInfo>>(emptyList())
 
     val moduleList by derivedStateOf {
         val comparator = moduleComparator()
@@ -119,16 +119,16 @@ class ModuleViewModel : ViewModel() {
     }
 
     suspend fun updateSearchText(text: String) {
-        _searchStatus.value.searchText = text
+        searchStatus.value.searchText = text
 
         if (text.isEmpty()) {
-            _searchStatus.value.resultStatus = SearchStatus.ResultStatus.DEFAULT
-            _searchResults.value = emptyList()
+            searchStatus.value.resultStatus = SearchStatus.ResultStatus.DEFAULT
+            searchResults.value = emptyList()
             return
         }
 
         val result = withContext(Dispatchers.IO) {
-            _searchStatus.value.resultStatus = SearchStatus.ResultStatus.LOAD
+            searchStatus.value.resultStatus = SearchStatus.ResultStatus.LOAD
             modules.filter {
                 it.id.contains(text, true) || it.name.contains(text, true) ||
                         it.description.contains(text, true) || it.author.contains(text, true) ||
@@ -139,8 +139,8 @@ class ModuleViewModel : ViewModel() {
             }
         }
 
-        _searchResults.value = result
-        _searchStatus.value.resultStatus = if (result.isEmpty()) {
+        searchResults.value = result
+        searchStatus.value.resultStatus = if (result.isEmpty()) {
             SearchStatus.ResultStatus.EMPTY
         } else {
             SearchStatus.ResultStatus.SHOW
@@ -256,7 +256,10 @@ class ModuleViewModel : ViewModel() {
             modules.forEach { module ->
                 val signature = module.toSignature()
                 val cached = updateInfoCache[module.id]
-                if ((cached == null || cached.signature != signature) && updateInfoInFlight.add(module.id)) {
+                if ((cached == null || cached.signature != signature) && updateInfoInFlight.add(
+                        module.id
+                    )
+                ) {
                     modulesToFetch += Triple(module.id, module, signature)
                 }
             }
@@ -287,9 +290,9 @@ class ModuleViewModel : ViewModel() {
         }
 
         withContext(Dispatchers.Main) {
-            removedIds.forEach { _updateInfo.remove(it) }
+            removedIds.forEach { updateInfo.remove(it) }
             changedEntries.forEach { (id, info) ->
-                _updateInfo[id] = info
+                updateInfo[id] = info
             }
         }
     }
