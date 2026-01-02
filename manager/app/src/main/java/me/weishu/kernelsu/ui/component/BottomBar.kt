@@ -7,35 +7,36 @@ import androidx.compose.material.icons.rounded.Extension
 import androidx.compose.material.icons.rounded.Security
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.HazeStyle
 import dev.chrisbanes.haze.hazeEffect
-import me.weishu.kernelsu.Natives
 import me.weishu.kernelsu.R
 import me.weishu.kernelsu.ui.LocalHandlePageChange
 import me.weishu.kernelsu.ui.LocalSelectedPage
-import me.weishu.kernelsu.ui.util.rootAvailable
+import me.weishu.kernelsu.ui.viewmodel.KsuStatusViewModel
 import top.yukonga.miuix.kmp.basic.NavigationBar
 import top.yukonga.miuix.kmp.basic.NavigationItem
-
 
 @Composable
 fun BottomBar(
     hazeState: HazeState,
     hazeStyle: HazeStyle
 ) {
-    val isManager = Natives.isManager
-    val fullFeatured = isManager && !Natives.requireNewKernel() && rootAvailable()
+    val ksuStatus = viewModel<KsuStatusViewModel>()
+    val fullFeatured by ksuStatus.isFullFeatured.collectAsState()
+
+    if (!fullFeatured) return
 
     val page = LocalSelectedPage.current
     val handlePageChange = LocalHandlePageChange.current
-
-    if (!fullFeatured) return
 
     val item = BottomBarDestination.entries.map { destination ->
         NavigationItem(
