@@ -117,7 +117,7 @@ class WebUIActivity : ComponentActivity() {
         setContentView(container)
 
         if (insets == Insets(0, 0, 0, 0)) {
-            suspendCancellableCoroutine<Unit> { cont ->
+            suspendCancellableCoroutine { cont ->
                 insetsContinuation = cont
                 cont.invokeOnCancellation {
                     insetsContinuation = null

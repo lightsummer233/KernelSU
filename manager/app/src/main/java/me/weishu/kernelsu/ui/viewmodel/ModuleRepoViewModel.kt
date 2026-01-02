@@ -58,26 +58,28 @@ class ModuleRepoViewModel : ViewModel() {
         val latestAsset: ReleaseAsset?,
     )
 
-    private var _modules = mutableStateOf<List<RepoModule>>(emptyList())
-    val modules: State<List<RepoModule>> = _modules
+    val modules: State<List<RepoModule>>
+        field = mutableStateOf<List<RepoModule>>(emptyList())
 
     var isRefreshing by mutableStateOf(false)
         private set
 
-    private val _searchStatus = mutableStateOf(SearchStatus(""))
-    val searchStatus: State<SearchStatus> = _searchStatus
+    val searchStatus: State<SearchStatus>
+        field = mutableStateOf(SearchStatus(""))
 
-    private val _searchResults = mutableStateOf<List<RepoModule>>(emptyList())
-    val searchResults: State<List<RepoModule>> = _searchResults
+    val searchResults: State<List<RepoModule>>
+        field = mutableStateOf<List<RepoModule>>(emptyList())
 
     fun refresh() {
         viewModelScope.launch {
             val netAvailable = isNetworkAvailable(ksuApp)
             withContext(Dispatchers.Main) { isRefreshing = true }
-            val parsed = withContext(Dispatchers.IO) { if (!netAvailable) null else fetchModulesInternal() }
+            val parsed = withContext(Dispatchers.IO) {
+                if (!netAvailable) null else fetchModulesInternal()
+            }
             withContext(Dispatchers.Main) {
                 if (parsed != null) {
-                    _modules.value = parsed
+                    modules.value = parsed
                 } else {
                     Toast.makeText(
                         ksuApp,
@@ -90,17 +92,17 @@ class ModuleRepoViewModel : ViewModel() {
     }
 
     suspend fun updateSearchText(text: String) {
-        _searchStatus.value.searchText = text
+        searchStatus.value.searchText = text
 
         if (text.isEmpty()) {
-            _searchStatus.value.resultStatus = SearchStatus.ResultStatus.DEFAULT
-            _searchResults.value = emptyList()
+            searchStatus.value.resultStatus = SearchStatus.ResultStatus.DEFAULT
+            searchResults.value = emptyList()
             return
         }
 
         val result = withContext(Dispatchers.IO) {
-            _searchStatus.value.resultStatus = SearchStatus.ResultStatus.LOAD
-            _modules.value.filter {
+            searchStatus.value.resultStatus = SearchStatus.ResultStatus.LOAD
+            modules.value.filter {
                 it.moduleId.contains(text, true)
                         || it.moduleName.contains(text, true)
                         || it.authors.contains(text, true)
@@ -109,8 +111,8 @@ class ModuleRepoViewModel : ViewModel() {
             }
         }
 
-        _searchResults.value = result
-        _searchStatus.value.resultStatus = if (result.isEmpty()) {
+        searchResults.value = result
+        searchStatus.value.resultStatus = if (result.isEmpty()) {
             SearchStatus.ResultStatus.EMPTY
         } else {
             SearchStatus.ResultStatus.SHOW
