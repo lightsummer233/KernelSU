@@ -93,7 +93,7 @@ fun UninstallDialog(
                         runType.value = type
                     },
                     title = stringResource(type.title),
-                    leftAction = {
+                    startAction = {
                         Icon(
                             imageVector = type.icon,
                             contentDescription = null,

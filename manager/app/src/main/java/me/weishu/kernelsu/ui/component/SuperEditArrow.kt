@@ -46,7 +46,7 @@ fun SuperEditArrow(
         titleColor = titleColor,
         summary = dialogTextFieldValue.intValue.toString(),
         summaryColor = summaryColor,
-        leftAction = leftAction,
+        startAction = leftAction,
         modifier = modifier,
         insideMargin = insideMargin,
         onClick = {
