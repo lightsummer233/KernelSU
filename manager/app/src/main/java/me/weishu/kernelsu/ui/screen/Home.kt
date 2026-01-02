@@ -35,6 +35,7 @@ import androidx.compose.material.icons.rounded.CheckCircleOutline
 import androidx.compose.material.icons.rounded.ErrorOutline
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.MutableState
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
@@ -50,6 +51,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.pm.PackageInfoCompat
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.ramcosta.composedestinations.generated.destinations.InstallScreenDestination
 import com.ramcosta.composedestinations.navigation.DestinationsNavigator
 import dev.chrisbanes.haze.HazeState
@@ -62,7 +64,6 @@ import kotlinx.coroutines.withContext
 import me.weishu.kernelsu.KernelVersion
 import me.weishu.kernelsu.Natives
 import me.weishu.kernelsu.R
-import me.weishu.kernelsu.getKernelVersion
 import me.weishu.kernelsu.ui.LocalHandlePageChange
 import me.weishu.kernelsu.ui.component.DropdownItem
 import me.weishu.kernelsu.ui.component.RebootListPopup
@@ -75,6 +76,7 @@ import me.weishu.kernelsu.ui.util.getSuperuserCount
 import me.weishu.kernelsu.ui.util.module.LatestVersionInfo
 import me.weishu.kernelsu.ui.util.reboot
 import me.weishu.kernelsu.ui.util.rootAvailable
+import me.weishu.kernelsu.ui.viewmodel.KsuStatusViewModel
 import top.yukonga.miuix.kmp.basic.BasicComponent
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.CardDefaults
@@ -98,7 +100,15 @@ fun HomePager(
     navigator: DestinationsNavigator,
     bottomInnerPadding: Dp
 ) {
-    val kernelVersion = getKernelVersion()
+    val ksuStatus = viewModel<KsuStatusViewModel>()
+    val kernelVersion by ksuStatus.kernelVersion.collectAsState()
+    val isManager by ksuStatus.isManager.collectAsState()
+    val ksuVersion by ksuStatus.ksuVersion.collectAsState()
+    val isSafeMode by ksuStatus.isSafeMode.collectAsState()
+    val nativeIsLkmMode by ksuStatus.nativeIsLkmMode.collectAsState()
+    val isLkmMode by ksuStatus.isLkmMode.collectAsState()
+    val requestNewKernel by ksuStatus.requestNewKernel.collectAsState()
+
     val scrollBehavior = MiuixScrollBehavior()
     val hazeState = remember { HazeState() }
     val hazeStyle = HazeStyle(
@@ -134,11 +144,6 @@ fun HomePager(
             overscrollEffect = null,
         ) {
             item {
-                val isManager = Natives.isManager
-                val ksuVersion = if (isManager) Natives.version else null
-                val lkmMode = ksuVersion?.let {
-                    if (kernelVersion.isGKI()) Natives.isLkmMode else null
-                }
                 val handlePageChange = LocalHandlePageChange.current
 
                 Column(
@@ -146,13 +151,13 @@ fun HomePager(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
-                    if (ksuVersion != null && !Natives.isLkmMode) {
+                    if (ksuVersion != null && !nativeIsLkmMode) {
                         WarningCard(
                             stringResource(id = R.string.home_gki_warning),
                             themeMode
                         )
                     }
-                    if (isManager && Natives.requireNewKernel()) {
+                    if (isManager && requestNewKernel) {
                         WarningCard(
                             stringResource(id = R.string.require_kernel_version)
                                 .format(ksuVersion, Natives.MINIMAL_SUPPORTED_KERNEL),
@@ -166,7 +171,7 @@ fun HomePager(
                         )
                     }
                     StatusCard(
-                        kernelVersion, ksuVersion, lkmMode,
+                        kernelVersion, ksuVersion, isLkmMode, isSafeMode,
                         onClickInstall = {
                             navigator.navigate(InstallScreenDestination) {
                                 launchSingleTop = true
@@ -175,7 +180,7 @@ fun HomePager(
                         onClickSuperuser = {
                             handlePageChange(1)
                         },
-                        onclickModule = {
+                        onClickModule = {
                             handlePageChange(2)
                         },
                         themeMode = themeMode
@@ -285,9 +290,10 @@ private fun StatusCard(
     kernelVersion: KernelVersion,
     ksuVersion: Int?,
     lkmMode: Boolean?,
+    safeMode: Boolean,
     onClickInstall: () -> Unit = {},
     onClickSuperuser: () -> Unit = {},
-    onclickModule: () -> Unit = {},
+    onClickModule: () -> Unit = {},
     themeMode: Int,
 ) {
     Column(
@@ -296,7 +302,7 @@ private fun StatusCard(
         when {
             ksuVersion != null -> {
                 val safeMode = when {
-                    Natives.isSafeMode -> " [${stringResource(id = R.string.safe_mode)}]"
+                    safeMode -> " [${stringResource(id = R.string.safe_mode)}]"
                     else -> ""
                 }
 
@@ -413,7 +419,7 @@ private fun StatusCard(
                                 .fillMaxWidth()
                                 .weight(1f),
                             insideMargin = PaddingValues(16.dp),
-                            onClick = { onclickModule() },
+                            onClick = { onClickModule() },
                             showIndication = true,
                             pressFeedbackType = PressFeedbackType.Tilt
                         ) {

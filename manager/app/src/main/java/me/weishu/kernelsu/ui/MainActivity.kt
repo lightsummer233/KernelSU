@@ -37,6 +37,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavBackStackEntry
 import androidx.navigation.compose.rememberNavController
 import com.ramcosta.composedestinations.DestinationsNavHost
@@ -66,6 +67,7 @@ import me.weishu.kernelsu.ui.screen.SuperUserPager
 import me.weishu.kernelsu.ui.theme.KernelSUTheme
 import me.weishu.kernelsu.ui.util.getFileName
 import me.weishu.kernelsu.ui.util.install
+import me.weishu.kernelsu.ui.viewmodel.KsuStatusViewModel
 import top.yukonga.miuix.kmp.basic.Scaffold
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
@@ -126,7 +128,6 @@ class MainActivity : ComponentActivity() {
                 ZipFileIntentHandler(
                     intentState = intentState,
                     intent = intent,
-                    isManager = isManager,
                     navigator = navigator
                 )
 
@@ -193,8 +194,8 @@ fun MainScreen(navController: DestinationsNavigator) {
     val activity = LocalActivity.current
     val coroutineScope = rememberCoroutineScope()
     val pagerState = rememberPagerState(initialPage = 0, pageCount = { 4 })
-    val isManager = Natives.isManager
-    val isFullFeatured = isManager && !Natives.requireNewKernel()
+    val ksuStatus = viewModel<KsuStatusViewModel>()
+    val isFullFeatured by ksuStatus.isFullFeatured.collectAsState()
     var userScrollEnabled by remember(isFullFeatured) { mutableStateOf(isFullFeatured) }
     var animating by remember { mutableStateOf(false) }
     var uiSelectedPage by remember { mutableIntStateOf(0) }
@@ -292,12 +293,14 @@ fun MainScreen(navController: DestinationsNavigator) {
 private fun ZipFileIntentHandler(
     intentState: MutableStateFlow<Int>,
     intent: android.content.Intent?,
-    isManager: Boolean,
     navigator: DestinationsNavigator
 ) {
+    val kernelInfo = viewModel<KsuStatusViewModel>()
+    val isManager by kernelInfo.isManager.collectAsState()
+    val isSafeMode by kernelInfo.isSafeMode.collectAsState()
+
     val context = LocalActivity.current ?: return
     var zipUri by remember { mutableStateOf<android.net.Uri?>(null) }
-    val isSafeMode = Natives.isSafeMode
     val clearZipUri = { zipUri = null }
 
     val installDialog = rememberConfirmDialog(

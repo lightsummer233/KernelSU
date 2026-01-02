@@ -12,6 +12,7 @@ import android.os.Handler
 import android.os.Looper
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
 import androidx.core.net.toUri
 import me.weishu.kernelsu.ksuApp
@@ -111,7 +112,9 @@ fun checkNewVersion(): LatestVersionInfo {
 }
 
 @Composable
-fun DownloadListener(context: Context, onDownloaded: (Uri) -> Unit) {
+fun DownloadListener(onDownloaded: (Uri) -> Unit) {
+    val context = LocalContext.current
+
     DisposableEffect(context) {
         val receiver = object : BroadcastReceiver() {
             @SuppressLint("Range")

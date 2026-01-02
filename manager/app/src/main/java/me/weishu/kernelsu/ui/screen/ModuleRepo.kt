@@ -1253,6 +1253,6 @@ fun ModuleRepoDetailScreen(
                 }
             }
         }
-        DownloadListener(context, onInstallModule)
+        DownloadListener(onInstallModule)
     }
 }

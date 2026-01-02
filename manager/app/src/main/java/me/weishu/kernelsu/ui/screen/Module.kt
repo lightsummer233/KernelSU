@@ -52,6 +52,7 @@ import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableState
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -100,7 +101,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import me.weishu.kernelsu.Natives
 import me.weishu.kernelsu.R
 import me.weishu.kernelsu.ksuApp
 import me.weishu.kernelsu.ui.component.ConfirmResult
@@ -119,6 +119,7 @@ import me.weishu.kernelsu.ui.util.module.fetchReleaseDescriptionHtml
 import me.weishu.kernelsu.ui.util.toggleModule
 import me.weishu.kernelsu.ui.util.undoUninstallModule
 import me.weishu.kernelsu.ui.util.uninstallModule
+import me.weishu.kernelsu.ui.viewmodel.KsuStatusViewModel
 import me.weishu.kernelsu.ui.viewmodel.ModuleViewModel
 import me.weishu.kernelsu.ui.webui.WebUIActivity
 import top.yukonga.miuix.kmp.basic.Card
@@ -156,12 +157,11 @@ fun ModulePager(
 ) {
     val viewModel = viewModel<ModuleViewModel>()
     val scope = rememberCoroutineScope()
+    val modules = viewModel.moduleList
     val searchStatus by viewModel.searchStatus
 
     val context = LocalContext.current
     val prefs = context.getSharedPreferences("settings", Context.MODE_PRIVATE)
-
-    val modules = viewModel.moduleList
 
     LaunchedEffect(Unit) {
         when {
@@ -198,11 +198,12 @@ fun ModulePager(
     val loadingDialog = rememberLoadingDialog()
     val confirmDialog = rememberConfirmDialog()
 
-    val isSafeMode = Natives.isSafeMode
+    val ksuStatus = viewModel<KsuStatusViewModel>()
+    val isSafeMode by ksuStatus.isSafeMode.collectAsState()
     val magiskInstalled by produceState(initialValue = false) {
         value = withContext(Dispatchers.IO) { hasMagisk() }
     }
-    val hideInstallButton = isSafeMode || magiskInstalled
+    val hideInstallButton by remember { derivedStateOf { isSafeMode || magiskInstalled } }
 
     val scrollBehavior = MiuixScrollBehavior()
     val listState = rememberLazyListState()
@@ -746,7 +747,6 @@ fun ModulePager(
                                 viewModel.markNeedRefresh()
                             }
                         },
-                        context = context,
                         innerPadding = innerPadding,
                         bottomInnerPadding = bottomInnerPadding,
                         boxHeight = boxHeight
@@ -770,7 +770,6 @@ private fun ModuleList(
     onModuleUndoUninstall: suspend (ModuleViewModel.ModuleInfo) -> Unit,
     onModuleToggle: suspend (ModuleViewModel.ModuleInfo) -> Unit,
     onModuleUpdate: suspend (ModuleViewModel.ModuleInfo, String, String, String) -> Unit,
-    context: Context,
     innerPadding: PaddingValues,
     bottomInnerPadding: Dp,
     boxHeight: MutableState<Dp>
@@ -780,13 +779,19 @@ private fun ModuleList(
 
     var isRefreshing by rememberSaveable { mutableStateOf(false) }
     val pullToRefreshState = rememberPullToRefreshState()
-    val refreshTexts = remember {
-        listOf(
-            context.getString(R.string.refresh_pulling),
-            context.getString(R.string.refresh_release),
-            context.getString(R.string.refresh_refresh),
-            context.getString(R.string.refresh_complete),
-        )
+    val refreshPulling = stringResource(R.string.refresh_pulling)
+    val refreshRelease = stringResource(R.string.refresh_release)
+    val refreshRefresh = stringResource(R.string.refresh_refresh)
+    val refreshComplete = stringResource(R.string.refresh_complete)
+    val refreshTexts by remember {
+        derivedStateOf {
+            listOf(
+                refreshPulling,
+                refreshRelease,
+                refreshRefresh,
+                refreshComplete
+            )
+        }
     }
     LaunchedEffect(isRefreshing) {
         if (isRefreshing) {
@@ -920,7 +925,7 @@ private fun ModuleList(
             }
         }
     }
-    DownloadListener(context, onInstallModule)
+    DownloadListener(onInstallModule)
 }
 
 @Composable
